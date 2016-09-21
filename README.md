@@ -7,8 +7,8 @@ Anschließend wird damit und dem Semester (abgeleitet aus Kurskategorie) auf TUC
 Die Links der Treffer werden darauf geprüft, ob sie die idnumber enthalten. Ist dies der Fall gelten sie als 'intakt'.
 
 ## Installation
-1. node.js installieren: https://nodejs.org/en/
-2. im Verzeichnis npm install ausführen
+1. lokal: node.js installieren: https://nodejs.org/en/
+2. lokal: im Verzeichnis dieses Tools ```npm install``` ausführen
 3. das Moodle-Plugin littlehelpers installieren: https://github.com/eLearning-TUDarmstadt/moodle-local_littlehelpers
 
 ## Konfiguration
