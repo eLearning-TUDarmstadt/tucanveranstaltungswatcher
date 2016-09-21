@@ -1,0 +1,21 @@
+{
+  "name": "tucanveranstaltungswatcher",
+  "version": "1.0.0",
+  "description": "Prüft, ob Moodle idnumbers zu TUCaN Veranstaltungen gehören",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^2.0.1",
+    "casperjs": "^1.1.3",
+    "jsonfile": "^2.4.0",
+    "load-script": "^1.0.0",
+    "nightmare": "^2.7.0",
+    "request": "^2.75.0"
+  },
+  "devDependencies": {}
+}

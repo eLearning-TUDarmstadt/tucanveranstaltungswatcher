@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
+        crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp"
+        crossorigin="anonymous">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+
+    <script src="courses.js"></script>
+</head>
+
+
+
+<body>
+    <div class="container">
+        <h1>Übersicht über TUCaN-Moodle-Kurse</h1>
+        <h3>Kaputt: <span id="broken"></span> / <span id="total"></span> (<span id="percentage"></span>%)</h3>
+        <table id="coursesTable" class="table table-bordered table-condensed">
+            <tr>
+                <th>ID</th>
+                <th>Semester</th>
+                <th>FB</th>
+                <th>Kurzname</th>
+                <th>Name</th>
+                <th>Aktivitäten</th>
+                <th>Foreneinträge</th>
+                <th>Intakt</th>
+            </tr>
+            </table>
+    </div>
+    <script>
+        console.log(courses[0]);
+        var COURSE_LINK = "https://mdl-beta.un.hrz.tu-darmstadt.de/course/view.php?id=";
+        var html;
+
+        var sum = Object.keys(courses).length;
+        var available = 0;
+        var not_available = 0;
+
+        var roundNumber = function(number, precision) {
+            var factor = Math.pow(10, precision);
+            var tempNumber = number * factor;
+            var roundedTempNumber = Math.round(tempNumber);
+            return roundedTempNumber / factor;
+        };
+
+
+        $.each(courses, function(key, course) {
+            html += "<tr";
+            if(course.available !== 1) {
+                html += " class='danger'";
+                not_available++;
+            }
+            html += ">";
+            html += "<td>" + course.id + "</td>";
+            html += "<td>" + course.semester + "</td>";
+            html += "<td>" + course.fb + "</td>";
+            html += "<td>" + course.shortname + "</td>";
+            html += "<td><a href='" + COURSE_LINK + course.id + "' target='_blank'>" + course.fullname + "</a></td>";
+            html += "<td>" + course.anzahlaktivitaeten + "</td>";
+            html += "<td>" + course.anzahlforeneintraege + "</td>";
+            html += "<td>" + course.available + "</td>";
+            html += "</tr>";
+        });
+        $('#coursesTable tr:last').after(html);
+        $('#broken').text(not_available);
+        $('#total').text(sum);
+        var percentage = 100 * (not_available / sum);
+        $('#percentage').text(roundNumber(percentage,2));
+    </script>
+</body>
+
+</html>
