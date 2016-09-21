@@ -39,7 +39,8 @@
             </div>
 
         </div>
-        <h3>Kaputt: <span id="broken"></span> / <span id="total"></span> (<span id="percentage"></span>%)</h3>
+        <h4>Kaputt: <span id="broken"></span> / <span id="total"></span> (<span id="percentage"></span>%)</h4>
+        <h4>Ungeprueft: <span id="ungeprueft"></span> / <span id="totalungeprueft"></span> (<span id="percentageungeprueft"></span>%)</h4>
         <table id="coursesTable" class="table table-bordered table-condensed">
             <tr>
                 <th>ID</th>
@@ -62,6 +63,8 @@
         var available = 0;
         var not_available = 0;
 
+        var ungeprueft = 0;
+
         var roundNumber = function(number, precision) {
             var factor = Math.pow(10, precision);
             var tempNumber = number * factor;
@@ -76,6 +79,10 @@
                 html += " class='danger'";
                 not_available++;
             }
+
+            if(typeof course.available === "undefined") {
+                ungeprueft++;
+            }
             html += ">";
             html += "<td>" + course.id + "</td>";
             html += "<td>" + course.semester + "</td>";
@@ -89,9 +96,13 @@
         });
         $('#coursesTable tr:last').after(html);
         $('#broken').text(not_available);
+        $('#ungeprueft').text(ungeprueft);
         $('#total').text(sum);
+        $('#totalungeprueft').text(sum);
         var percentage = 100 * (not_available / sum);
+        var percentageUngeprueft = 100 * (ungeprueft / sum);
         $('#percentage').text(roundNumber(percentage,2));
+        $('#percentageungeprueft').text(roundNumber(percentageUngeprueft,2));
     </script>
 </body>
 
