@@ -23,7 +23,22 @@
 
 <body>
     <div class="container">
-        <h1>Übersicht über TUCaN-Moodle-Kurse</h1>
+        <h1>Übersicht über TUCaN-Moodle-Kurse und ihren Schnittstellenstatus</h1>
+        <div class="panel panel-default">
+            <div class="panel-heading">Erklärung</div>
+            <div class="panel-body">
+                <p>Getestet werden alle Kurse, die eine idnumber haben. Das Skript versucht aus shortname/fullname eine TUCaN-Veranstaltungsnummer
+                    zu extrahieren. Anschließend wird damit und dem Semester (abgeleitet aus Kurskategorie) auf TUCaN nach Veranstaltungen gesucht.
+                    Die Links der Treffer werden darauf geprüft, ob sie die idnumber enthalten. Ist dies der Fall gelten sie als 'intakt'.
+                </p>
+                <b>Legende 'intakt':</b><br>
+                <p><b>0</b>: Es konnte entweder keine Veranstaltungsnummer extrahiert werden (s.o.), es gab keine Suchergebnisse auf TUCaN oder die Treffer
+                enthielten nicht die idnumber im Link</p> 
+                <p><b>1</b>: Es konnte ein Suchtreffer mit passender idnumber erzielt werden. Die Verbindung zu TUCaN ist in Ordnung</p>
+                <p><b>undefined</b>: Kurs wurde noch nicht geprüft.</p>
+            </div>
+
+        </div>
         <h3>Kaputt: <span id="broken"></span> / <span id="total"></span> (<span id="percentage"></span>%)</h3>
         <table id="coursesTable" class="table table-bordered table-condensed">
             <tr>
@@ -36,7 +51,7 @@
                 <th>Foreneinträge</th>
                 <th>Intakt</th>
             </tr>
-            </table>
+        </table>
     </div>
     <script>
         console.log(courses[0]);
