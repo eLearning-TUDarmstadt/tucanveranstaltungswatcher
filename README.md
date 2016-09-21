@@ -16,9 +16,9 @@ Die Konfiguration erfolgt oben in der Datei index.js
 
 ## Ausführung
 Starten lässt sich das Tool über
-´´´
+```
 npm start 'derMoodleUsername' 'dasPasswort'
-´´´
+```
 starten. Der genutzt Account muss systemweit Course Creator oder Administrator sein.
 
 Die Ausführung kann mit Strg+C unterbrochen werden. Je nach Einstellung macht das Tool beim nächsten Mal mit den ungeprüften oder kaputten Kursen weiter
