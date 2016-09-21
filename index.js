@@ -1,6 +1,7 @@
 // Einstellungen
 var TRY_TO_LOAD_SAVED_COURSES = true;
 var SKIP_ALREADY_CHECKED_COURSES = true;
+var RECHECK_BROKEN_COURSES = false;
 var MOODLE_BASEPATH = "https://mdl-beta.un.hrz.tu-darmstadt.de";
 // </Einstellungen>
 
@@ -20,18 +21,18 @@ var jsonfile = require('jsonfile');
 var fs = require('fs');
 
 var coursesFile = 'courses.js';
-
-//var MOODLE_BASEPATH = "http://localhost/moodle";
 var COURSES_WITH_ID_PATH = MOODLE_BASEPATH + "/local/littlehelpers/rest/allcourseswithidnumber.php";
-
-
 var MOODLE_USER = "";
 var MOODLE_PW = "";
-
 var tucan_search_url = "https://www.tucan.tu-darmstadt.de/scripts/mgrqcgi?APPNAME=CampusNet&PRGNAME=ACTION&ARGUMENTS=-AIxtcTTmUEuAV1Qg8GNK553JXuajPTfa0gb2M3QdGHiHkLl9C4p3xgJB7tjNf0gDpSsKsQ4BOqcIqeunOQBYvCUY3iyTTHn==";
-
+var tucan_semester_ids = null;
 var courses = {};
 
+//
+// Programmablauf
+//
+
+// CMD-Argumente => Moodle username + password
 if(process.argv.length !== 4) {
     console.log("Mit den Parametern stimmt etwas nicht...");
     console.log("Aufruf mit:");
@@ -42,7 +43,6 @@ if(process.argv.length !== 4) {
     MOODLE_PW = process.argv[3];
 }
 
-var tucan_semester_ids = null;
 
 loginfo("Versuche Login auf Moodle");
 loginToMoodle().then(function () {
@@ -76,18 +76,25 @@ loginToMoodle().then(function () {
             });
         });
 });
+// </Programmablauf>
 
+//
+// Ab hier Hilfsfunktionen
+// 
+
+/**
+ * Organisiert die Prüfung aller Kurse
+ */
 function addAvailabilityToCourses() {
     return new Promise(function (resolve, reject) {
         var promises = [];
 
         async.eachOfSeries(courses, function (course, i, goOn) {
             console.log("[#" + i + "] Checking " + course.shortname);
-            if (SKIP_ALREADY_CHECKED_COURSES && (typeof course.available) === "undefined") {
+            if (!SKIP_ALREADY_CHECKED_COURSES || (typeof course.available) === "undefined" || (RECHECK_BROKEN_COURSES && course.available === 0)) {
                 checkAvailability(course).then(function (available) {
                     courses[i].available = available;
                     saveCourses();
-                    //console.log(available);
                     goOn();
                 });
             } else {
@@ -95,7 +102,9 @@ function addAvailabilityToCourses() {
                 goOn();
             }
 
-        }, function (error) {
+        }, 
+        // Fehler oder Fertig
+        function (error) {
             if (error) {
                 console.log(error);
                 reject(error);
@@ -107,22 +116,31 @@ function addAvailabilityToCourses() {
     });
 }
 
+/**
+ * Prüft ob sich zu einem Kurs, genauer seiner Veranstaltungsnummer und seinem Semester
+ * eine TUCaN-Veranstaltung mit gleicher idnumber finden lässt
+ */
 function checkAvailability(course) {
     return new Promise(function (resolve, reject) {
+        // Ermittlung der Veranstaltungsnummer
         var veranstnummer = shortnameToVeranstNummer(course.shortname);
+        if(!veranstnummer) {
+            veranstnummer = fullnameToVeranstNummer(course.fullname);
+        }
         if (!veranstnummer) {
             logerror("Keine Veranstaltungsnummer für " + course.shortname + " gefunden");
             resolve(0);
-        } else {
-            //console.log("Veranstaltungsnummner: " + veranstnummer);
-            //console.log(course);
+        } 
+        // Veranstaltungsnummer gefunden, suche auf TUCaN danach
+        else {
             nightmare
                 .goto(tucan_search_url)
-                .wait('form[id="findcourse"]')
+                .wait() // 'form[id="findcourse"]'
                 .select('select[id="course_catalogue"]', course.semesterId)
                 .insert('input[id="course_number"]', veranstnummer)
                 .click('input[name="submit_search"]')
-                .wait('ul[class="searchCriteria"]')
+                .wait() // 'ul[class="searchCriteria"]''
+                // Links zu den Veranstaltungsseiten der Suchergebnisse zurückgeben
                 .evaluate(function () {
                     var rows = document.querySelectorAll('tr[class="tbdata"] td a');
                     return [].map.call(rows, function (row) {
@@ -130,14 +148,16 @@ function checkAvailability(course) {
                     });
                 })
                 .then(function (results) {
-                    //console.log(results)
                     async.eachOfSeries(results, function (result, key, goOn) {
+                        // idnumber in Link enthalten?
                         if (result.indexOf(course.idnumber) !== -1) {
                             resolve(1);
                         } else {
                             goOn();
                         }
-                    }, function (error) {
+                    }, 
+                    // Aufruf wenn fertig oder Fehler
+                    function (error) {
                         if (error) {
                             logerror("Fehler in checkAvailability:");
                             console.log(error);
@@ -156,44 +176,20 @@ function checkAvailability(course) {
     });
 }
 
+/**
+ * Gibt die URL zur TUCaN Veranstaltungsseite zurück
+ * 
+ * Bin ursprünglich davon ausgegangen, dass sich die URL von Suche zu Suche ändert
+ */
 function getSearchURL() {
     return new Promise(function (resolve, reject) {
         resolve(tucan_search_url);
-        /*
-        try {
-            nightmare
-            // Ermittle Link zur Veranstaltungssuche
-            .goto('https://www.tucan.tu-darmstadt.de')
-            .wait(1000)
-            //.wait('div[class="pageElementTop"]')
-            .click('li[id="link000334"] a')
-            //.wait('div[class="pageElementTop"]')
-            .wait(1000)
-            .click('li[title="Lehrveranstaltungssuche"] a')
-            .wait(1000)
-            //.wait('div[class="pageElementTop"]')
-            //.wait('form[id="findcourse"]')
-            .evaluate(function() {
-                return document.location.href;
-            })
-            .then(function (url) {
-                loginfo("FOUND URL: " + url);
-                console.log(url);
-                tucan_search_url = url;
-                resolve(tucan_search_url);
-            })
-            .catch(function (error) {
-                logerror("URL nicht gefunden.");
-                console.log(error);
-                resolve(tucan_search_url);
-            })
-        } catch (error) {
-            console.log(error);   
-        }
-        */
     });
 }
 
+/**
+ * Extrahiert aus der TUCaN Veranstaltungssuchseite alle Semester und ihre TUCaN IDs
+ */
 function getSemesterIDs() {
     return new Promise(function (resolve, reject) {
         nightmare
@@ -218,9 +214,14 @@ function getSemesterIDs() {
     });
 }
 
+/**
+ * Holt alle Moodle-Kurse mit einer nicht leeren idnumber
+ * 
+ * Damit das klappt ist es nötig, dass das Plugin local/littlehelpers installiert ist
+ */
 function getMoodleCourses() {
     return new Promise(function (resolve, reject) {
-        // Load courses.file
+        // Load courses file
         if (TRY_TO_LOAD_SAVED_COURSES) {
             try {
                 if (fs.existsSync(coursesFile)) {
@@ -237,7 +238,7 @@ function getMoodleCourses() {
         // Load courses from moodle
         nightmare
             .goto(COURSES_WITH_ID_PATH)
-            .wait('body')
+            .wait()
             .evaluate(function () {
                 var json_text = document.body.innerText;
                 var json = JSON.parse(json_text);
@@ -246,12 +247,11 @@ function getMoodleCourses() {
             .then(function (c) {
                 // Jeden Kurs einzeln hinzufügen, um nichts zu überschreiben
                 async.eachOf(c, function (course, index, goOn) {
-                    //loginfo("Checke Kurs " + courseid + " (" + course.shortname + ")");
-                    //console.log(course);
-                    // Kurs schon vorhanden
+
+                    // Kurs schon vorhanden?
                     if (courses[course.id]) {
-                        //loginfo("Kurs schon vorhanden");
-                        // Update idnumber?
+
+                        // Hat sich die idnumber geändert?
                         if (courses[course.id].idnumber !== course.idnumber) {
                             //loginfo("idnumber unterschiedlich");
                             courses[course.id].idnumber = course.idnumber;
@@ -266,7 +266,9 @@ function getMoodleCourses() {
                         courses[course.id] = course;
                         goOn();
                     }
-                }, function (error) {
+                }, 
+                // Wenn fertig oder Fehler
+                function (error) {
                     if (error) {
                         logerror("Fehler beim Laden der Kurse:")
                         console.log(error);
@@ -284,25 +286,22 @@ function getMoodleCourses() {
     });
 }
 
+/**
+ * Geht alle Kurse durch und ergänzt sie jeweils um die zugehörige 
+ * TUCaN Semester ID
+ */
 function addSemesterIdToCourses() {
     return new Promise(function (resolve, reject) {
-        //var promises = [];
-
         var size = courses.length;
 
         async.eachOfSeries(courses, function (course, key, goOn) {
-            //console.log(course);
-            //console.log("[#" + key + "] " + course.shortname);
-            //promises.push(
             semesterToID(course.semester).then(function (semesterId) {
-                //console.log(course);
-                //console.log("\t=> " + semesterId);
                 courses[key].semesterId = semesterId;
                 goOn();
             });
-            //);
-
-        }, function (error) {
+        }, 
+        // Wenn Fehler oder fertig
+        function (error) {
             if (error) {
                 console.log(error);
                 reject();
@@ -312,10 +311,12 @@ function addSemesterIdToCourses() {
                 resolve();
             }
         });
-        //Promise.all(promises).then(function () {        });
     });
 }
 
+/**
+ * Übersetzt ein Semester (WiSe 2015/16) in die zugehörige TUCaN-ID
+ */
 function semesterToID(semester) {
     return new Promise(function (resolve, reject) {
         try {
@@ -363,6 +364,10 @@ function shortnameToVeranstNummer(shortname) {
     } else {
         return null;
     }
+}
+
+function fullnameToVeranstNummer(fullname) {
+    return shortnameToVeranstNummer(fullname);
 }
 
 function loginfo(info) {
