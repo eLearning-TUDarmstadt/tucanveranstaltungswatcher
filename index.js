@@ -1,7 +1,7 @@
 // Einstellungen
 var TRY_TO_LOAD_SAVED_COURSES = true;
 var SKIP_ALREADY_CHECKED_COURSES = true;
-var RECHECK_BROKEN_COURSES = false;
+var RECHECK_BROKEN_COURSES = true;
 var MOODLE_BASEPATH = "https://mdl-beta.un.hrz.tu-darmstadt.de";
 // </Einstellungen>
 
@@ -135,11 +135,11 @@ function checkAvailability(course) {
         else {
             nightmare
                 .goto(tucan_search_url)
-                .wait() // 'form[id="findcourse"]'
+                .wait('form[id="findcourse"]') 
                 .select('select[id="course_catalogue"]', course.semesterId)
                 .insert('input[id="course_number"]', veranstnummer)
                 .click('input[name="submit_search"]')
-                .wait() // 'ul[class="searchCriteria"]''
+                .wait('ul[class="searchCriteria"]')  
                 // Links zu den Veranstaltungsseiten der Suchergebnisse zurückgeben
                 .evaluate(function () {
                     var rows = document.querySelectorAll('tr[class="tbdata"] td a');
