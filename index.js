@@ -1,8 +1,12 @@
 // Einstellungen
 var TRY_TO_LOAD_SAVED_COURSES = true;
 var SKIP_ALREADY_CHECKED_COURSES = true;
-var RECHECK_BROKEN_COURSES = true;
+var RECHECK_BROKEN_COURSES = false;
 var MOODLE_BASEPATH = "https://mdl-beta.un.hrz.tu-darmstadt.de";
+
+// Falls nur Kurse mit Suchbegriff gecheckt werden sollen
+var CHECK_BY_NAME = false;
+var SEARCH_TERM = "2016/17";
 // </Einstellungen>
 
 
@@ -69,6 +73,9 @@ loginToMoodle().then(function () {
                             saveCourses();
                             loginfo("Fertig.")
                             process.exit();
+                        }, function(error) {
+                            logerror("Fehler beim hinzufügen der Verfügbarkeiten");
+                            console.log(error);
                         });
 
                     });
@@ -82,6 +89,19 @@ loginToMoodle().then(function () {
 // Ab hier Hilfsfunktionen
 // 
 
+function checkCourse(course) {
+    // Soll der Name gecheckt werden?
+    var check_by_name = !CHECK_BY_NAME || (course.shortname.indexOf(SEARCH_TERM) > 0 || course.fullname.indexOf(SEARCH_TERM) > 0);
+    //console.log("\t\tCheck by name: " + check_by_name);
+    var skip_checked = (SKIP_ALREADY_CHECKED_COURSES && (typeof course.available) !== "undefined");
+    //console.log("\t\tSkip checked: " + skip_checked);
+    var undef = (typeof course.available) === "undefined";
+    //console.log("\t\tUndef: " + undef);
+    var recheck = RECHECK_BROKEN_COURSES && course.available === 0;
+    //console.log("\t\tRecheck: " + recheck);
+    return check_by_name && (undef || !skip_checked || recheck);
+}
+
 /**
  * Organisiert die Prüfung aller Kurse
  */
@@ -90,15 +110,18 @@ function addAvailabilityToCourses() {
         var promises = [];
 
         async.eachOfSeries(courses, function (course, i, goOn) {
-            console.log("[#" + i + "] Checking " + course.shortname);
-            if (!SKIP_ALREADY_CHECKED_COURSES || (typeof course.available) === "undefined" || (RECHECK_BROKEN_COURSES && course.available === 0)) {
+            console.log("Checking #" + course.id + ":\t" + course.shortname);
+            if (checkCourse(course)) {
                 checkAvailability(course).then(function (available) {
                     courses[i].available = available;
                     saveCourses();
                     goOn();
+                }, function(error) {
+                    logerror("Fehler bei Prüfung!");
+                    logerror(error);
                 });
             } else {
-                loginfo("\t => Kurs bereits geprüft. Überspringe.");
+                loginfo("\t => Kurs wird übersprungen");
                 goOn();
             }
 
@@ -328,6 +351,7 @@ function semesterToID(semester) {
             });
             resolve();
         } catch (error) {
+            logerror.error("Fehler beim Ergänzen der SemesterID");
             console.log(error);
             reject(error);
         }
@@ -380,5 +404,4 @@ function logerror(error) {
 
 function saveCourses() {
     fs.writeFileSync(coursesFile, "var courses = " + JSON.stringify(courses, null, 2) + ";");
-    //jsonfile.writeFileSync(coursesFile, courses, { spaces: 2 });
 }
