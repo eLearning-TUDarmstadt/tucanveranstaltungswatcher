@@ -16,7 +16,10 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
         crossorigin="anonymous"></script>
 
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <script src="courses.js"></script>
+
+
 </head>
 
 
@@ -28,19 +31,24 @@
             <div class="panel-heading">Erklärung</div>
             <div class="panel-body">
                 <p>Getestet werden alle Kurse, die eine idnumber haben. Das Skript versucht aus shortname/fullname eine TUCaN-Veranstaltungsnummer
-                    zu extrahieren. Anschließend wird damit und dem Semester (abgeleitet aus Kurskategorie) auf TUCaN nach Veranstaltungen gesucht.
-                    Die Links der Treffer werden darauf geprüft, ob sie die idnumber enthalten. Ist dies der Fall gelten sie als 'intakt'.
+                    zu extrahieren. Anschließend wird damit und dem Semester (abgeleitet aus Kurskategorie) auf TUCaN nach
+                    Veranstaltungen gesucht. Die Links der Treffer werden darauf geprüft, ob sie die idnumber enthalten.
+                    Ist dies der Fall gelten sie als 'intakt'.
                 </p>
                 <b>Legende 'intakt':</b><br>
-                <p><b>0</b>: Es konnte entweder keine Veranstaltungsnummer extrahiert werden (s.o.), es gab keine Suchergebnisse auf TUCaN oder die Treffer
-                enthielten nicht die idnumber im Link</p> 
-                <p><b>1</b>: Es konnte ein Suchtreffer mit passender idnumber erzielt werden. Die Verbindung zu TUCaN ist in Ordnung</p>
+                <p><b>0</b>: Es konnte entweder keine Veranstaltungsnummer extrahiert werden (s.o.), es gab keine Suchergebnisse
+                    auf TUCaN oder die Treffer enthielten nicht die idnumber im Link</p>
+                <p><b>1</b>: Es konnte ein Suchtreffer mit passender idnumber erzielt werden. Die Verbindung zu TUCaN ist in
+                    Ordnung
+                </p>
                 <p><b>undefined</b>: Kurs wurde noch nicht geprüft.</p>
             </div>
 
         </div>
         <h4>Kaputt: <span id="broken"></span> / <span id="total"></span> (<span id="percentage"></span>%)</h4>
         <h4>Ungeprueft: <span id="ungeprueft"></span> / <span id="totalungeprueft"></span> (<span id="percentageungeprueft"></span>%)</h4>
+        <a id="downloadbtn" download="courses.csv"><button class="button" >Daten herunterladen</button></a>
+        <div id="columnchart_material" style="width: 120%; height: 500px;"></div>
         <table id="coursesTable" class="table table-bordered table-condensed">
             <tr>
                 <th>ID</th>
@@ -55,7 +63,10 @@
         </table>
     </div>
     <script>
-        console.log(courses[0]);
+
+
+
+        //console.log(courses[0]);
         var COURSE_LINK = "https://mdl-beta.un.hrz.tu-darmstadt.de/course/view.php?id=";
         var html;
 
@@ -72,6 +83,35 @@
             return roundedTempNumber / factor;
         };
 
+        var CSV_SEP = "\t";
+        var csvContent="data:text/csv;charset=utf-8,";
+
+        var firstCourse = courses[Object.keys(courses)[0]];
+        var keys = Object.keys(firstCourse);
+
+        csvContent += keys.join(CSV_SEP) + "\n";
+
+        var dataForGraph = {};
+
+        function addDataForGraph(semester, fb, available) {
+            if(!semester) return;
+            //semester = semester.replace(/\s/g, '');
+            if(!fb) return;
+            //fb = fb.replace(/\s/g, '');
+
+            if(!dataForGraph[semester]) dataForGraph[semester] = {};
+            
+            //console.log("Semester: " + semester + "\t\tFB: " + fb + "\t\tVerf:" + available);
+
+            var count = 0;
+
+            if(dataForGraph[semester] && dataForGraph[semester][available]) {
+                count = dataForGraph[semester][available];
+            }
+
+            count++;
+            dataForGraph[semester][available] = count;
+        }
 
         $.each(courses, function(key, course) {
             html += "<tr";
@@ -93,7 +133,17 @@
             html += "<td>" + course.anzahlforeneintraege + "</td>";
             html += "<td>" + course.available + "</td>";
             html += "</tr>";
+
+            addDataForGraph(course.semester, course.fb, course.available);
+
+            
+            var values = [];
+            keys.map(function(key) {
+                values.push(course[key]);
+            });
+            csvContent += values.join(CSV_SEP) + "\n";
         });
+
         $('#coursesTable tr:last').after(html);
         $('#broken').text(not_available);
         $('#ungeprueft').text(ungeprueft);
@@ -103,6 +153,29 @@
         var percentageUngeprueft = 100 * (ungeprueft / sum);
         $('#percentage').text(roundNumber(percentage,2));
         $('#percentageungeprueft').text(roundNumber(percentageUngeprueft,2));
+        $("#downloadbtn").attr("href", encodeURI(csvContent));
+
+        // Prepare Data for Graph
+        //console.log(dataForGraph);
+
+        var gdata = [];
+        gdata.push(['Semester', 'Gut', 'Kaputt']);
+        for(var sem in dataForGraph) {
+                gdata.push([sem, dataForGraph[sem][1], dataForGraph[sem][0]]);
+        }
+
+        google.charts.load('current', {'packages':['corechart']});
+      google.charts.setOnLoadCallback(function() {
+        var data = google.visualization.arrayToDataTable(gdata);
+
+                var options = {
+                    isStacked: true
+                };
+
+                var chart = new google.visualization.ColumnChart(document.getElementById('columnchart_material'));
+
+                chart.draw(data, options);
+      });
     </script>
 </body>
 
