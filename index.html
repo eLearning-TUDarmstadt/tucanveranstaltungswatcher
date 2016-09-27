@@ -48,7 +48,9 @@
         <h4>Kaputt: <span id="broken"></span> / <span id="total"></span> (<span id="percentage"></span>%)</h4>
         <h4>Ungeprueft: <span id="ungeprueft"></span> / <span id="totalungeprueft"></span> (<span id="percentageungeprueft"></span>%)</h4>
         <a id="downloadbtn" download="courses.csv"><button class="button" >Daten herunterladen</button></a>
-        <div id="columnchart_material" style="width: 120%; height: 500px;"></div>
+
+        <!--
+        <div id="columnchart_material"></div>
         <table id="coursesTable" class="table table-bordered table-condensed">
             <tr>
                 <th>ID</th>
@@ -61,6 +63,13 @@
                 <th>Intakt</th>
             </tr>
         </table>
+        -->
+        <div id="dashboard">
+            <div id="columnchart" style="width: 120%; height: 500px;"></div>
+            <div id="filter_semester"></div>
+            <div id="filter_intakt"></div>
+            <div id="table_div"></div>
+        </div>
     </div>
     <script>
 
@@ -92,7 +101,7 @@
         csvContent += keys.join(CSV_SEP) + "\n";
 
         var dataForGraph = {};
-
+        
         function addDataForGraph(semester, fb, available) {
             if(!semester) return;
             //semester = semester.replace(/\s/g, '');
@@ -112,8 +121,13 @@
             count++;
             dataForGraph[semester][available] = count;
         }
-
+        
+        
+        var tableData = [];
         $.each(courses, function(key, course) {
+            var array = [parseInt(course.id), course.idnumber, course.semester, course.fb, course.shortname, parseInt(course.anzahlaktivitaeten), parseInt(course.anzahlforeneintraege), String(course.available)];
+            tableData.push(array);
+            /*
             html += "<tr";
             if(course.available !== 1) {
                 html += " class='danger'";
@@ -134,9 +148,10 @@
             html += "<td>" + course.available + "</td>";
             html += "</tr>";
 
-            addDataForGraph(course.semester, course.fb, course.available);
 
+            */
             
+            addDataForGraph(course.semester, course.fb, course.available);
             var values = [];
             keys.map(function(key) {
                 values.push(course[key]);
@@ -157,13 +172,13 @@
 
         // Prepare Data for Graph
         //console.log(dataForGraph);
-
+        
         var gdata = [];
         gdata.push(['Semester', 'Gut', 'Kaputt']);
         for(var sem in dataForGraph) {
                 gdata.push([sem, dataForGraph[sem][1], dataForGraph[sem][0]]);
         }
-
+        /*
         google.charts.load('current', {'packages':['corechart']});
       google.charts.setOnLoadCallback(function() {
         var data = google.visualization.arrayToDataTable(gdata);
@@ -176,6 +191,84 @@
 
                 chart.draw(data, options);
       });
+      */
+      
+
+		      google.charts.load("current", {"packages":["table", "controls", "corechart"]});
+		      google.charts.setOnLoadCallback(drawDashboard);
+		
+		      function drawDashboard() {
+                var colChartData = google.visualization.arrayToDataTable(gdata);
+
+                var options = {
+                    isStacked: true
+                };
+
+                var chart = new google.visualization.ColumnChart(document.getElementById('columnchart'));
+
+                chart.draw(colChartData, options);
+
+
+		        var data = new google.visualization.DataTable();
+		        data.addColumn("number", "#");
+                data.addColumn("string", "idnumber");
+		        data.addColumn("string", "Semester");
+		        data.addColumn("string", "FB");
+		        data.addColumn("string", "Kurzname");
+		        data.addColumn("number", "Aktivitäten");
+		        data.addColumn("number", "Foreneinträge");
+		        data.addColumn("string", "intakt");
+                console.log(data);
+                data.addRows(tableData);
+
+                // Create a dashboard.
+		        var dashboard = new google.visualization.Dashboard(
+		            document.getElementById("dashboard"));
+		        		
+		        // Create a range slider, passing some options
+		        var filter_semester = new google.visualization.ControlWrapper({
+		          "controlType": "CategoryFilter",
+		          "containerId": "filter_semester",
+		          "options": {
+		            "filterColumnLabel": "Semester"
+		          }
+		        });
+
+                var filter_intakt = new google.visualization.ControlWrapper({
+		          "controlType": "CategoryFilter",
+		          "containerId": "filter_intakt",
+		          "options": {
+		            "filterColumnLabel": "intakt"
+		          }
+		        });
+		
+		        var table = new google.visualization.ChartWrapper({
+			        chartType: "Table",
+			        containerId: "table_div",
+			        options: {
+			            showRowNumber: false,
+			            width: "100%",
+			            //page: "enable",
+			            //pageSize: 25,
+			            allowHtml: true
+			                    //sortColumn: 0,
+			                    //sortAscending: false
+			        },
+			        view: {
+			            // 0: instance
+			            // 1: section name
+			            // 2: localised activity type
+			            // 3: activity name
+			            // 4: mod - moodle internal mod name, for example forum, chat, assign, choice
+			            // 5: course module id (cm)
+			            // 6: visible (1 || 0)
+			            columns: [0,1,2,3,4,5,6,7]
+			        }
+			    });
+		        //var table = new google.visualization.Table(document.getElementById("table_div"));
+		        dashboard.bind([filter_semester, filter_intakt], table);	
+                dashboard.draw(data);
+              }
     </script>
 </body>
 
