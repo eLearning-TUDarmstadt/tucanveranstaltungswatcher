@@ -1,14 +1,20 @@
 // Einstellungen
 var TRY_TO_LOAD_SAVED_COURSES = true;
 var SKIP_ALREADY_CHECKED_COURSES = true;
-var RECHECK_BROKEN_COURSES = false;
+var RECHECK_BROKEN_COURSES = true;
 var MOODLE_BASEPATH = "https://mdl-beta.un.hrz.tu-darmstadt.de";
 
 // Falls nur Kurse mit Suchbegriff gecheckt werden sollen
-var CHECK_BY_NAME = false;
+var CHECK_BY_NAME = true;
 var SEARCH_TERM = "2016/17";
+
+// Wenn zu hoch, kommt es zu Fehlern!
+var NUM_OF_JOBS = 10;
 // </Einstellungen>
 
+
+//const v8 = require('v8');
+//v8.setFlagsFromString('--stack-size 65500');
 
 var request = require('request');
 var Nightmare = require('nightmare');
@@ -37,7 +43,7 @@ var courses = {};
 //
 
 // CMD-Argumente => Moodle username + password
-if(process.argv.length !== 4) {
+if (process.argv.length !== 4) {
     console.log("Mit den Parametern stimmt etwas nicht...");
     console.log("Aufruf mit:");
     console.log("npm start 'moodle-username' 'moodle-password'");
@@ -59,7 +65,7 @@ loginToMoodle().then(function () {
                 getSemesterIDs().then(function () {
                     loginfo("Ergänze zu jedem Kurs die entsprechende Semester ID");
                     addSemesterIdToCourses().then(function () {
-                        loginfo("Prüfe für " + courses.length + " Kurse ob die idnumber zu einem Suchergebnis passt");
+                        loginfo("Prüfe für " + Object.keys(courses).length + " Kurse ob die idnumber zu einem Suchergebnis passt");
                         addAvailabilityToCourses().then(function () {
 
                             //console.log("Courses:");
@@ -73,7 +79,7 @@ loginToMoodle().then(function () {
                             saveCourses();
                             loginfo("Fertig.")
                             process.exit();
-                        }, function(error) {
+                        }, function (error) {
                             logerror("Fehler beim hinzufügen der Verfügbarkeiten");
                             console.log(error);
                         });
@@ -107,36 +113,82 @@ function checkCourse(course) {
  */
 function addAvailabilityToCourses() {
     return new Promise(function (resolve, reject) {
-        var promises = [];
+        var cargo = async.cargo(function (tasks, callback) {
+            async.eachOf(tasks, function (info, key, cb) {
+                var course = info.course;
+                console.log("Checking #" + course.id + ":\t" + course.shortname);
+                if (checkCourse(course)) {
+                    checkAvailability(course).then(function (available) {
+                        courses[course.id].available = available;
+                        saveCourses();
+                        process.nextTick(cb);
+                    }, function (error) {
+                        logerror("Fehler bei Prüfung!");
+                        console.log(error);
+                        process.nextTick(cb);
+                    });
+                } else {
+                    loginfo("\t => Kurs wird übersprungen");
+                    process.nextTick(cb);
+                }
+            }, function (error) {
+                process.nextTick(callback);
+            });
+        }, NUM_OF_JOBS);
 
-        async.eachOfSeries(courses, function (course, i, goOn) {
-            console.log("Checking #" + course.id + ":\t" + course.shortname);
-            if (checkCourse(course)) {
-                checkAvailability(course).then(function (available) {
-                    courses[i].available = available;
-                    saveCourses();
-                    goOn();
-                }, function(error) {
-                    logerror("Fehler bei Prüfung!");
-                    logerror(error);
-                });
-            } else {
-                loginfo("\t => Kurs wird übersprungen");
-                goOn();
-            }
-
-        }, 
-        // Fehler oder Fertig
-        function (error) {
+        cargo.drain = function (error) {
             if (error) {
+                logerror("Fehler bei Cargo!");
                 console.log(error);
-                reject(error);
+                reject();
             } else {
                 resolve();
             }
-        });
+        };
 
+        var coursesToCheck = [];
+        async.eachOfSeries(courses, function (c, i, callback) {
+            if (checkCourse(c)) {
+                coursesToCheck.push({ course: c });
+            }
+            process.nextTick(callback);
+        }, function() {
+            cargo.push(coursesToCheck);
+        });
     });
+
+    /*
+    var promises = [];
+
+    async.eachOfSeries(courses, function (course, i, goOn) {
+        console.log("Checking #" + course.id + ":\t" + course.shortname);
+        if (checkCourse(course)) {
+            checkAvailability(course).then(function (available) {
+                courses[i].available = available;
+                saveCourses();
+                goOn();
+            }, function(error) {
+                logerror("Fehler bei Prüfung!");
+                logerror(error);
+            });
+        } else {
+            loginfo("\t => Kurs wird übersprungen");
+            goOn();
+        }
+
+    }, 
+    // Fehler oder Fertig
+    function (error) {
+        if (error) {
+            console.log(error);
+            reject(error);
+        } else {
+            resolve();
+        }
+    });
+  
+});
+*/
 }
 
 /**
@@ -147,22 +199,33 @@ function checkAvailability(course) {
     return new Promise(function (resolve, reject) {
         // Ermittlung der Veranstaltungsnummer
         var veranstnummer = shortnameToVeranstNummer(course.shortname);
-        if(!veranstnummer) {
+        if (!veranstnummer) {
             veranstnummer = fullnameToVeranstNummer(course.fullname);
         }
         if (!veranstnummer) {
             logerror("Keine Veranstaltungsnummer für " + course.shortname + " gefunden");
-            resolve(0);
-        } 
+            resolve("no lv-number");
+        }
         // Veranstaltungsnummer gefunden, suche auf TUCaN danach
         else {
-            nightmare
+            var n = Nightmare({
+                show: false, // Browserfenster anzeigen?
+                //waitTimeout: 10000
+            });
+            n
                 .goto(tucan_search_url)
-                .wait('form[id="findcourse"]') 
+                .wait('form[id="findcourse"]')
                 .select('select[id="course_catalogue"]', course.semesterId)
                 .insert('input[id="course_number"]', veranstnummer)
                 .click('input[name="submit_search"]')
-                .wait('ul[class="searchCriteria"]')  
+                //.wait('ul[class="searchCriteria"]')
+                //.wait('div[id="pageFoot"]')
+                .wait(function() {
+                    var results = document.querySelectorAll('tr[class="tbdata"] td a');
+                    var position = document.documentElement.innerHTML.indexOf('Keine Veranstaltungen gefunden');
+                    console.log(position);
+                    return (results.length > 0 || position > 0); 
+                })
                 // Links zu den Veranstaltungsseiten der Suchergebnisse zurückgeben
                 .evaluate(function () {
                     var rows = document.querySelectorAll('tr[class="tbdata"] td a');
@@ -170,25 +233,27 @@ function checkAvailability(course) {
                         return row.href;
                     });
                 })
+                .end()
                 .then(function (results) {
                     async.eachOfSeries(results, function (result, key, goOn) {
                         // idnumber in Link enthalten?
                         if (result.indexOf(course.idnumber) !== -1) {
+                            loginfo("\t => OKAY!");
                             resolve(1);
                         } else {
                             goOn();
                         }
-                    }, 
-                    // Aufruf wenn fertig oder Fehler
-                    function (error) {
-                        if (error) {
-                            logerror("Fehler in checkAvailability:");
-                            console.log(error);
-                            reject();
-                        } else {
-                            resolve(0);
-                        }
-                    })
+                    },
+                        // Aufruf wenn fertig oder Fehler
+                        function (error) {
+                            if (error) {
+                                logerror("Fehler in checkAvailability:");
+                                console.log(error);
+                                reject();
+                            } else {
+                                resolve(0);
+                            }
+                        })
                 })
                 .catch(function (error) {
                     logerror("Fehler in checkAvailability:");
@@ -289,18 +354,18 @@ function getMoodleCourses() {
                         courses[course.id] = course;
                         goOn();
                     }
-                }, 
-                // Wenn fertig oder Fehler
-                function (error) {
-                    if (error) {
-                        logerror("Fehler beim Laden der Kurse:")
-                        console.log(error);
-                    } else {
-                        saveCourses();
-                        resolve();
+                },
+                    // Wenn fertig oder Fehler
+                    function (error) {
+                        if (error) {
+                            logerror("Fehler beim Laden der Kurse:")
+                            console.log(error);
+                        } else {
+                            saveCourses();
+                            resolve();
 
-                    }
-                })
+                        }
+                    })
             })
             .catch(function (error) {
                 console.log(error);
@@ -322,18 +387,17 @@ function addSemesterIdToCourses() {
                 courses[key].semesterId = semesterId;
                 goOn();
             });
-        }, 
-        // Wenn Fehler oder fertig
-        function (error) {
-            if (error) {
-                console.log(error);
-                reject();
-            } else {
-                saveCourses();
-                console.log("Erledigt");
-                resolve();
-            }
-        });
+        },
+            // Wenn Fehler oder fertig
+            function (error) {
+                if (error) {
+                    console.log(error);
+                    reject();
+                } else {
+                    saveCourses();
+                    resolve();
+                }
+            });
     });
 }
 
