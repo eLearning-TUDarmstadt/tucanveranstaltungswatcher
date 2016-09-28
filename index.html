@@ -166,9 +166,19 @@
         //console.log(dataForGraph);
         
         var gdata = [];
-        gdata.push(['Semester', 'Gut', 'Kaputt']);
+        gdata.push(['Semester', 'Gut', 'Kaputt', 'Ungeprueft', 'Sonstiges']);
+        console.log(dataForGraph);
         for(var sem in dataForGraph) {
-                gdata.push([sem, dataForGraph[sem][1], dataForGraph[sem][0]]);
+            var gut = dataForGraph[sem][1];
+            var kaputt = dataForGraph[sem][0];
+            var ungeprueft = dataForGraph[sem]['undefined'];
+
+            var sum = 0;
+            for(var k in dataForGraph[sem]) {
+                sum += dataForGraph[sem][k];
+            }
+            var sonstiges = sum - gut - kaputt - ungeprueft;
+            gdata.push([sem, gut, kaputt, ungeprueft, sonstiges]);
         }
 
 		      google.charts.load("current", {"packages":["table", "controls", "corechart"]});
