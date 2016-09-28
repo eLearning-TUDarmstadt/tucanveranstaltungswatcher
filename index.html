@@ -48,22 +48,8 @@
         <h4>Kaputt: <span id="broken"></span> / <span id="total"></span> (<span id="percentage"></span>%)</h4>
         <h4>Ungeprueft: <span id="ungeprueft"></span> / <span id="totalungeprueft"></span> (<span id="percentageungeprueft"></span>%)</h4>
         <a id="downloadbtn" download="courses.csv"><button class="button" >Daten herunterladen</button></a>
+        <a id="deletedownloadbtn" download="courses_to_delete.csv"><button class="button" >kaputte Kurse ohne Aktivitäten und Foreneinträge</button></a>
 
-        <!--
-        <div id="columnchart_material"></div>
-        <table id="coursesTable" class="table table-bordered table-condensed">
-            <tr>
-                <th>ID</th>
-                <th>Semester</th>
-                <th>FB</th>
-                <th>Kurzname</th>
-                <th>Name</th>
-                <th>Aktivitäten</th>
-                <th>Foreneinträge</th>
-                <th>Intakt</th>
-            </tr>
-        </table>
-        -->
         <div id="dashboard">
             <div id="columnchart" style="width: 120%; height: 500px;"></div>
             <div id="filter_semester"></div>
@@ -74,9 +60,9 @@
     <script>
 
 
-
-        //console.log(courses[0]);
-        var COURSE_LINK = "https://mdl-beta.un.hrz.tu-darmstadt.de/course/view.php?id=";
+        var BASE = "https://moodle.tu-darmstadt.de";
+        var COURSE_LINK = BASE + "/course/view.php?id=";
+        var DELETION_LINK = BASE + "/course/delete.php?id=";
         var html;
 
         var sum = Object.keys(courses).length;
@@ -92,8 +78,10 @@
             return roundedTempNumber / factor;
         };
 
-        var CSV_SEP = "\t";
+        var CSV_SEP = ";";
         var csvContent="data:text/csv;charset=utf-8,";
+        var deleteCsvContent="data:text/csv;charset=utf-8,shortname" + CSV_SEP + "delete\n";
+
 
         var firstCourse = courses[Object.keys(courses)[0]];
         var keys = Object.keys(firstCourse);
@@ -125,31 +113,33 @@
         
         var tableData = [];
         $.each(courses, function(key, course) {
-            var array = [parseInt(course.id), course.idnumber, course.semester, course.fb, course.shortname, parseInt(course.anzahlaktivitaeten), parseInt(course.anzahlforeneintraege), String(course.available)];
+            var deleteCourse = "";
+
+            var aktivitaeten = parseInt(course.anzahlaktivitaeten);
+            aktivitaeten = (isNaN(aktivitaeten)) ? 0 : aktivitaeten;
+            var foreneintraege = parseInt(course.anzahlforeneintraege);
+            foreneintraege = (isNaN(foreneintraege)) ? 0 : foreneintraege;
+
+            if(aktivitaeten <= 1 &&
+            foreneintraege == 0 &&
+            parseInt(course.available) == 0
+                ) {
+                    
+                    deleteCsvContent += course.shortname + CSV_SEP + "1\n";
+                    deleteCourse = "<a href='"+DELETION_LINK+course.id+"' target='_blank'>Löschen</a>";
+                }
+
+            var array = [
+                parseInt(course.id), 
+                course.idnumber, 
+                course.semester, 
+                course.fb, 
+                "<a href=" + COURSE_LINK + course.id + " target='_blank'>" + course.shortname + "</a>", 
+                aktivitaeten, 
+                foreneintraege, 
+                String(course.available),
+                deleteCourse];
             tableData.push(array);
-            /*
-            html += "<tr";
-            if(course.available !== 1) {
-                html += " class='danger'";
-                not_available++;
-            }
-
-            if(typeof course.available === "undefined") {
-                ungeprueft++;
-            }
-            html += ">";
-            html += "<td>" + course.id + "</td>";
-            html += "<td>" + course.semester + "</td>";
-            html += "<td>" + course.fb + "</td>";
-            html += "<td>" + course.shortname + "</td>";
-            html += "<td><a href='" + COURSE_LINK + course.id + "' target='_blank'>" + course.fullname + "</a></td>";
-            html += "<td>" + course.anzahlaktivitaeten + "</td>";
-            html += "<td>" + course.anzahlforeneintraege + "</td>";
-            html += "<td>" + course.available + "</td>";
-            html += "</tr>";
-
-
-            */
             
             addDataForGraph(course.semester, course.fb, course.available);
             var values = [];
@@ -169,6 +159,8 @@
         $('#percentage').text(roundNumber(percentage,2));
         $('#percentageungeprueft').text(roundNumber(percentageUngeprueft,2));
         $("#downloadbtn").attr("href", encodeURI(csvContent));
+        
+        $("#deletedownloadbtn").attr("href", encodeURI(deleteCsvContent));
 
         // Prepare Data for Graph
         //console.log(dataForGraph);
@@ -178,21 +170,6 @@
         for(var sem in dataForGraph) {
                 gdata.push([sem, dataForGraph[sem][1], dataForGraph[sem][0]]);
         }
-        /*
-        google.charts.load('current', {'packages':['corechart']});
-      google.charts.setOnLoadCallback(function() {
-        var data = google.visualization.arrayToDataTable(gdata);
-
-                var options = {
-                    isStacked: true
-                };
-
-                var chart = new google.visualization.ColumnChart(document.getElementById('columnchart_material'));
-
-                chart.draw(data, options);
-      });
-      */
-      
 
 		      google.charts.load("current", {"packages":["table", "controls", "corechart"]});
 		      google.charts.setOnLoadCallback(drawDashboard);
@@ -218,6 +195,7 @@
 		        data.addColumn("number", "Aktivitäten");
 		        data.addColumn("number", "Foreneinträge");
 		        data.addColumn("string", "intakt");
+                data.addColumn("string", "löschen");
                 console.log(data);
                 data.addRows(tableData);
 
@@ -254,6 +232,7 @@
 			                    //sortColumn: 0,
 			                    //sortAscending: false
 			        },
+                    /*
 			        view: {
 			            // 0: instance
 			            // 1: section name
@@ -263,7 +242,7 @@
 			            // 5: course module id (cm)
 			            // 6: visible (1 || 0)
 			            columns: [0,1,2,3,4,5,6,7]
-			        }
+			        }*/
 			    });
 		        //var table = new google.visualization.Table(document.getElementById("table_div"));
 		        dashboard.bind([filter_semester, filter_intakt], table);	
