@@ -1,12 +1,14 @@
 // Einstellungen
 var TRY_TO_LOAD_SAVED_COURSES = true;
-var SKIP_ALREADY_CHECKED_COURSES = true;
+var SKIP_ALREADY_CHECKED_COURSES = false;
 var RECHECK_BROKEN_COURSES = true;
-var MOODLE_BASEPATH = "https://mdl-beta.un.hrz.tu-darmstadt.de";
+var MOODLE_BASEPATH = "https://moodle.tu-darmstadt.de";
 
 // Falls nur Kurse mit Suchbegriff gecheckt werden sollen
+// ACHTUNG: Keine Semester wählen, die mehr als ein Semester in der Zukunft liegen
+// (Das gesuchte Semester muss in der Suche des Vorlesungsverzeichnisses auswählbar sein)
 var CHECK_BY_NAME = true;
-var SEARCH_TERM = "2016/17";
+var SEARCH_TERM = "2017";
 
 // Wenn zu hoch, kommt es zu Fehlern!
 var NUM_OF_JOBS = 10;
@@ -31,12 +33,15 @@ var jsonfile = require('jsonfile');
 var fs = require('fs');
 
 var coursesFile = 'courses.js';
-var COURSES_WITH_ID_PATH = MOODLE_BASEPATH + "/local/littlehelpers/rest/allcourseswithidnumber.php";
+var COURSES_WITH_ID_PATH = MOODLE_BASEPATH + "/report/moodleanalyst/allcourseswithidnumber.php";
 var MOODLE_USER = "";
 var MOODLE_PW = "";
 var tucan_search_url = "https://www.tucan.tu-darmstadt.de/scripts/mgrqcgi?APPNAME=CampusNet&PRGNAME=ACTION&ARGUMENTS=-AIxtcTTmUEuAV1Qg8GNK553JXuajPTfa0gb2M3QdGHiHkLl9C4p3xgJB7tjNf0gDpSsKsQ4BOqcIqeunOQBYvCUY3iyTTHn==";
 var tucan_semester_ids = null;
 var courses = {};
+
+// Zwischenspeicher für das Ergebnis von Moodle 
+var found_moodle_courses = {};
 
 //
 // Programmablauf
@@ -59,6 +64,16 @@ loginToMoodle().then(function () {
     loginfo("Hole alle Kurse mit courseid von Moodle (" + MOODLE_BASEPATH + ")");
     getMoodleCourses()
         .then(function () {
+
+            // Entferne auf Moodle gelöschten Kurse
+            for (var id in courses) {
+                if (!found_moodle_courses[id]) {
+                    loginfo("Gelöschter Kurs #" + id + ":\t" + courses[id].shortname);
+                    delete courses[id];
+                }
+            }
+            saveCourses();
+
             loginfo("Hole URL der Veranstaltungssuche auf TUCaN");
             getSearchURL().then(function () {
                 loginfo("Hole alle TUCaN Semester IDs");
@@ -149,46 +164,15 @@ function addAvailabilityToCourses() {
         var coursesToCheck = [];
         async.eachOfSeries(courses, function (c, i, callback) {
             if (checkCourse(c)) {
-                coursesToCheck.push({ course: c });
+                coursesToCheck.push({
+                    course: c
+                });
             }
             process.nextTick(callback);
-        }, function() {
+        }, function () {
             cargo.push(coursesToCheck);
         });
     });
-
-    /*
-    var promises = [];
-
-    async.eachOfSeries(courses, function (course, i, goOn) {
-        console.log("Checking #" + course.id + ":\t" + course.shortname);
-        if (checkCourse(course)) {
-            checkAvailability(course).then(function (available) {
-                courses[i].available = available;
-                saveCourses();
-                goOn();
-            }, function(error) {
-                logerror("Fehler bei Prüfung!");
-                logerror(error);
-            });
-        } else {
-            loginfo("\t => Kurs wird übersprungen");
-            goOn();
-        }
-
-    }, 
-    // Fehler oder Fertig
-    function (error) {
-        if (error) {
-            console.log(error);
-            reject(error);
-        } else {
-            resolve();
-        }
-    });
-  
-});
-*/
 }
 
 /**
@@ -206,6 +190,11 @@ function checkAvailability(course) {
             logerror("Keine Veranstaltungsnummer für " + course.shortname + " gefunden");
             resolve("no lv-number");
         }
+
+        if(!course.semesterId) {
+            logerror("Keine SemesterId für " + course.shortname + " gefunden. Ist das Sem. schon im VL-Verz?!");
+            resolve("no semesterId");
+        }
         // Veranstaltungsnummer gefunden, suche auf TUCaN danach
         else {
             var n = Nightmare({
@@ -218,13 +207,12 @@ function checkAvailability(course) {
                 .select('select[id="course_catalogue"]', course.semesterId)
                 .insert('input[id="course_number"]', veranstnummer)
                 .click('input[name="submit_search"]')
-                //.wait('ul[class="searchCriteria"]')
-                //.wait('div[id="pageFoot"]')
-                .wait(function() {
+                // Auf Suchergebnisse oder Fehlermeldung warten
+                .wait(function () {
                     var results = document.querySelectorAll('tr[class="tbdata"] td a');
                     var position = document.documentElement.innerHTML.indexOf('Keine Veranstaltungen gefunden');
                     console.log(position);
-                    return (results.length > 0 || position > 0); 
+                    return (results.length > 0 || position > 0);
                 })
                 // Links zu den Veranstaltungsseiten der Suchergebnisse zurückgeben
                 .evaluate(function () {
@@ -236,20 +224,20 @@ function checkAvailability(course) {
                 .end()
                 .then(function (results) {
                     async.eachOfSeries(results, function (result, key, goOn) {
-                        // idnumber in Link enthalten?
-                        if (result.indexOf(course.idnumber) !== -1) {
-                            loginfo("\t => OKAY!");
-                            resolve(1);
-                        } else {
-                            goOn();
-                        }
-                    },
+                            // idnumber in Link enthalten?
+                            if (result.indexOf(course.idnumber) !== -1) {
+                                loginfo("\t => OKAY!");
+                                resolve(1);
+                            } else {
+                                goOn();
+                            }
+                        },
                         // Aufruf wenn fertig oder Fehler
                         function (error) {
                             if (error) {
                                 logerror("Fehler in checkAvailability:");
                                 console.log(error);
-                                reject();
+                                resolve();
                             } else {
                                 resolve(0);
                             }
@@ -258,7 +246,7 @@ function checkAvailability(course) {
                 .catch(function (error) {
                     logerror("Fehler in checkAvailability:");
                     console.log(error);
-                    resolve(0);
+                    resolve();
                 })
         }
     });
@@ -330,31 +318,27 @@ function getMoodleCourses() {
             .evaluate(function () {
                 var json_text = document.body.innerText;
                 var json = JSON.parse(json_text);
-                return Object.keys(json).map(function (x) { return json[x]; });
+                return Object.keys(json).map(function (x) {
+                    return json[x];
+                });
             })
             .then(function (c) {
                 // Jeden Kurs einzeln hinzufügen, um nichts zu überschreiben
                 async.eachOf(c, function (course, index, goOn) {
+                        found_moodle_courses[course.id] = course;
 
-                    // Kurs schon vorhanden?
-                    if (courses[course.id]) {
-
-                        // Hat sich die idnumber geändert?
-                        if (courses[course.id].idnumber !== course.idnumber) {
-                            //loginfo("idnumber unterschiedlich");
-                            courses[course.id].idnumber = course.idnumber;
-                            courses[course.id].available = undefined;
+                        // Kurs schon vorhanden? => Update
+                        if (courses[course.id]) {
+                            for (var key in course) {
+                                courses[course.id][key] = course[key];
+                            }
                             goOn();
                         } else {
+                            loginfo("Neuer Kurs: " + course.shortname);
+                            courses[course.id] = course;
                             goOn();
                         }
-
-                    } else {
-                        loginfo("Neuer Kurs: " + course.shortname);
-                        courses[course.id] = course;
-                        goOn();
-                    }
-                },
+                    },
                     // Wenn fertig oder Fehler
                     function (error) {
                         if (error) {
@@ -363,7 +347,6 @@ function getMoodleCourses() {
                         } else {
                             saveCourses();
                             resolve();
-
                         }
                     })
             })
@@ -383,11 +366,11 @@ function addSemesterIdToCourses() {
         var size = courses.length;
 
         async.eachOfSeries(courses, function (course, key, goOn) {
-            semesterToID(course.semester).then(function (semesterId) {
-                courses[key].semesterId = semesterId;
-                goOn();
-            });
-        },
+                semesterToID(course.semester).then(function (semesterId) {
+                    courses[key].semesterId = semesterId;
+                    goOn();
+                });
+            },
             // Wenn Fehler oder fertig
             function (error) {
                 if (error) {
