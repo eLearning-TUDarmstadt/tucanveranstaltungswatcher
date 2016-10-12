@@ -8,8 +8,8 @@ Die Links der Treffer werden darauf geprüft, ob sie die idnumber enthalten. Ist
 
 ## Installation
 1. lokal: node.js installieren: https://nodejs.org/en/
-2. lokal: im Verzeichnis dieses Tools ```npm install``` ausführen
-3. das Moodle-Plugin littlehelpers installieren: https://github.com/eLearning-TUDarmstadt/moodle-local_littlehelpers
+2. lokal: auf der Shell in das Verzeichnis des Veranstaltungswatchers wechseln und  ```npm install``` ausführen
+3. das Moodle-Plugin littlehelpers installieren: https://github.com/eLearning-TUDarmstadt/moodle-local_littlehelpers und in der index.js den Link auf die Datei allcourseswithidnumber.php setzen.
 
 ## Konfiguration
 Die Konfiguration erfolgt oben in der Datei index.js
