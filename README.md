@@ -26,4 +26,5 @@ und überspringt bereits geprüfte Kurse.
 
 Fehler "Error: .wait() timed out after 2000msec" können ignoriert werden. Sie deuten darauf hin, dass die TUCaN-Suche ergebnislos war.
 
-Der Fortschritt/das Ergebnis lässt sich mit der Datei index.html verfolgen.
+## Ergebnis
+Der Fortschritt/das Ergebnis lässt sich mit der Datei index.html verfolgen, die im Verzeichnis des veranstaltungswatchers liegt und sich lokal mit dem Browser öffnen lässt.
