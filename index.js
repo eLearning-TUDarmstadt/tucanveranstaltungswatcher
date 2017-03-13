@@ -8,7 +8,7 @@ var MOODLE_BASEPATH = "https://moodle.tu-darmstadt.de";
 // ACHTUNG: Keine Semester wählen, die mehr als ein Semester in der Zukunft liegen
 // (Das gesuchte Semester muss in der Suche des Vorlesungsverzeichnisses auswählbar sein)
 var CHECK_BY_NAME = true;
-var SEARCH_TERM = "2017";
+var SEARCH_TERM = "SoSe 2017";
 
 // Wenn zu hoch, kommt es zu Fehlern!
 var NUM_OF_JOBS = 10;
@@ -27,7 +27,7 @@ var nightmare = Nightmare({
     openDevTools: {
         mode: 'detach'
     },
-    waitTimeout: 2000
+    waitTimeout: 20000
 });
 var jsonfile = require('jsonfile');
 var fs = require('fs');
