@@ -33,7 +33,7 @@ var jsonfile = require('jsonfile');
 var fs = require('fs');
 
 var coursesFile = 'courses.js';
-var COURSES_WITH_ID_PATH = MOODLE_BASEPATH + "/report/moodleanalyst/allcourseswithidnumber.php";
+var COURSES_WITH_ID_PATH = MOODLE_BASEPATH + "/local/littlehelpers/rest/allcourseswithidnumber.php";
 var MOODLE_USER = "";
 var MOODLE_PW = "";
 var tucan_search_url = "https://www.tucan.tu-darmstadt.de/scripts/mgrqcgi?APPNAME=CampusNet&PRGNAME=ACTION&ARGUMENTS=-AIxtcTTmUEuAV1Qg8GNK553JXuajPTfa0gb2M3QdGHiHkLl9C4p3xgJB7tjNf0gDpSsKsQ4BOqcIqeunOQBYvCUY3iyTTHn==";
