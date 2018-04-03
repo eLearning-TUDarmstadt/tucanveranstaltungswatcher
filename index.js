@@ -414,7 +414,7 @@ function loginToMoodle() {
             .goto(MOODLE_BASEPATH + "/login/index.php?username=" + MOODLE_USER)
             .wait('form[id="login"]')
             .insert('input[id="password"]', MOODLE_PW)
-            .click('input[id="loginbtn"]')
+            .click('button[id="loginbtn"]')
             .wait('a[data-title="logout,moodle"]')
             .then(function () {
                 resolve();
