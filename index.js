@@ -8,7 +8,7 @@ var MOODLE_BASEPATH = "https://moodle.tu-darmstadt.de";
 // ACHTUNG: Keine Semester wählen, die mehr als ein Semester in der Zukunft liegen
 // (Das gesuchte Semester muss in der Suche des Vorlesungsverzeichnisses auswählbar sein)
 var CHECK_BY_NAME = true;
-var SEARCH_TERM = "SoSe 2017";
+var SEARCH_TERM = "SoSe 2018";
 
 // Wenn zu hoch, kommt es zu Fehlern!
 var NUM_OF_JOBS = 10;
@@ -36,7 +36,7 @@ var coursesFile = 'courses.js';
 var COURSES_WITH_ID_PATH = MOODLE_BASEPATH + "/local/littlehelpers/rest/allcourseswithidnumber.php";
 var MOODLE_USER = "";
 var MOODLE_PW = "";
-var tucan_search_url = "https://www.tucan.tu-darmstadt.de/scripts/mgrqcgi?APPNAME=CampusNet&PRGNAME=ACTION&ARGUMENTS=-AIxtcTTmUEuAV1Qg8GNK553JXuajPTfa0gb2M3QdGHiHkLl9C4p3xgJB7tjNf0gDpSsKsQ4BOqcIqeunOQBYvCUY3iyTTHn==";
+var tucan_search_url = "https://www.tucan.tu-darmstadt.de/scripts/mgrqcgi?APPNAME=CampusNet&PRGNAME=ACTION&ARGUMENTS=-AvZNBmPA8HR9ViqwlhHpmQF.oetZt1V8rztQkAhzpQpF72H9Vc08oggaMcGf5P3oL3ZXcHyicze5yNRikSl-Yof90WR--T7==";
 var tucan_semester_ids = null;
 var courses = {};
 
