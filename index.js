@@ -36,7 +36,7 @@ var coursesFile = 'courses.js';
 var COURSES_WITH_ID_PATH = MOODLE_BASEPATH + "/local/littlehelpers/rest/allcourseswithidnumber.php";
 var MOODLE_USER = "";
 var MOODLE_PW = "";
-var tucan_search_url = "https://www.tucan.tu-darmstadt.de/scripts/mgrqcgi?APPNAME=CampusNet&PRGNAME=ACTION&ARGUMENTS=-AvZNBmPA8HR9ViqwlhHpmQF.oetZt1V8rztQkAhzpQpF72H9Vc08oggaMcGf5P3oL3ZXcHyicze5yNRikSl-Yof90WR--T7==";
+var tucan_search_url = "https://www.tucan.tu-darmstadt.de/scripts/mgrqispi.dll?APPNAME=CampusNet&PRGNAME=ACTION&ARGUMENTS=-AsPDp4MWQcspD6e.zbTOo7tf73fWRAhZ6qciSfqCGFQpDV0urcWJ36fYcMKH45WyU9YKG.eNSyhr5i8-maGZljayiYJQV37==";
 var tucan_semester_ids = null;
 var courses = {};
 
